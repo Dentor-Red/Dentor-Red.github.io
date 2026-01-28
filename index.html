@@ -1,15 +1,504 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hello, This is a test in the index file!</title>
-    <script src ="./js/scripts" defer></script>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Computer Graphics Test</title>
+
+    <link rel="shortcut icon" href="bulldog.png" type="image/x-icon">
+
+    <style>
+        body {
+            margin: 0;
+        }
+
+        h1 {
+            text-align: center;
+        }
+    </style>
+
+    <script src="./js/three.js"> </script>
+
+    <script src="./js/SceneUtils.js"></script>
+    <script src="./js/OrbitControls.js"></script>
+    <script src="./js/dat.gui.js"></script>
+
+    <!-- Car/scene related code that's not strictly necessary for this quiz -->
+    <script src="./js/quiz-10-script.js"></script>
 </head>
+
 <body>
-    <h1> Hello, This is a test in the index file!</h1>
-    <script type = "text/javascript">
-        alert("Welcome to my page!");
+
+    <h1>Computer Graphics Test</h1>
+
+    <script>
+
+        // === NOTE === see quiz-10-script.js for related code used in this scene
+        const permaObjects = [];
+
+        // Create any global variables used in your scene         
+        var car = new THREE.Object3D();
+
+        var ah = new THREE.AxesHelper(50);
+        var loader = new THREE.TextureLoader();
+
+        const groundTexture = loader.load("concrete_0031_color_1k.jpg");
+        groundTexture.wrapS = THREE.RepeatWrapping;   // horizontal wrapping
+        groundTexture.wrapT = THREE.RepeatWrapping;   // vertical wrapping
+        groundTexture.repeat.set(30, 30);
+
+        // Dictionary
+        // Access variableName.keyName or variableName["keyName"]
+        var carMeshMaterials = {
+            wheelsOuter: new THREE.MeshPhongMaterial({
+                specular: new THREE.Color("white"),
+                shininess: 40,
+                color: new THREE.Color(0xffffff),
+                map: loader.load("tire.jpg")
+            }),
+            wheelsInner: new THREE.MeshPhongMaterial({
+                specular: new THREE.Color("white"),
+                shininess: 40,
+                color: new THREE.Color(0xffffff),
+                map: loader.load("tire-inner.jpg")
+            }),
+            wheelsRubber: new THREE.MeshLambertMaterial({
+                color: new THREE.Color(0x1a1a1a), // color match the tire rubber texture color                
+            }),
+            body: new THREE.MeshPhongMaterial({
+                color: new THREE.Color("red"),
+                specular: new THREE.Color("white"),
+                shininess: 40
+            }),
+            ground: new THREE.MeshPhongMaterial({
+                color: new THREE.Color("white"), //dirt brown   
+                specular: new THREE.Color("white"),
+                shininess: 1,
+                side: THREE.DoubleSide,
+                map: groundTexture
+            }),
+            headlight: new THREE.MeshPhongMaterial({
+                specular: new THREE.Color("white"),
+                shininess: 10,
+                color: 0x202020, //greyish
+                side: THREE.DoubleSide,
+            }),
+            bulb: new THREE.MeshBasicMaterial({
+                color: new THREE.Color(0xeedd82),
+            })
+        };
+
+        // Create an initial empty Scene
+        var scene = new THREE.Scene();
+
+        // Create a renderer to render the scene
+        var renderer = new THREE.WebGLRenderer({
+            antialias: true,
+        });
+
+        renderer.shadowMap.enabled = true; // enable shadows
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // set shadow type
+
+        // Adds the canvas to the document
+        renderer.setSize(canvasSize.width, canvasSize.height);
+        renderer.setClearColor(0x2f2f2f, 1); // set background color (light gray)
+        renderer.domElement.id = "quiz-canvas"; // add the id="" value to our canvas so we can access it later
+        document.body.appendChild(renderer.domElement); // append canvas to DOM
+
+        // Set up a camera for the scene
+        var camera = setupCamera(cameraParams);
+
+        // Add OrbitControls to allow user interaction (zoom, rotate, pan)
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        scene.add(camera);
+
+        scene.add(ah); //add axishelper to scene -- created as a global variable               
+
+        // Add a ground to the scene
+        var ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), carMeshMaterials.ground);
+        ground.translateZ(-49)
+        ground.translateY(-5 + 0.02);
+        ground.rotateX(THREE.Math.degToRad(90));
+        ground.receiveShadow = true; // enable shadows
+
+        scene.add(ground);
+
+        // Add lights
+        // Add ambient light source
+        var ambLight = new THREE.AmbientLight(new THREE.Color("white"), 0.5);
+        scene.add(ambLight);
+
+        var sunLight = new THREE.DirectionalLight(new THREE.Color("white"), 1);
+        // Default positions of directional light and target
+        sunLight.position.set(200, 200, -200);
+        sunLight.target.position.set(0, 0, 0);
+        sunLight.castShadow = true; // enable shadows
+        sunLight.shadow.mapSize.width = 1024; // default
+        sunLight.shadow.mapSize.height = 1024; // default
+        sunLight.shadow.camera.near = 10; // default
+        sunLight.shadow.camera.far = 500; // default
+        sunLight.shadow.camera.left = -500; // default
+        sunLight.shadow.camera.right = 500; // default
+        sunLight.shadow.camera.top = 500; // default
+        sunLight.shadow.camera.bottom = -500; // default
+
+        scene.add(sunLight);
+        scene.add(sunLight.target);
+
+        // Add the light helper
+        const helper = new THREE.CameraHelper(sunLight.shadow.camera);
+        // scene.add(helper);
+
+        //TODO 3:        
+        // Add the sun 
+        const sunGeometry = new THREE.SphereGeometry(10, 32, 32);
+        const sunMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            transparent: true,
+            opacity: 0.6,
+        });
+        const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+        sunMesh.position.copy(sunLight.position);
+        scene.add(sunMesh);
+
+        // Add the lamp light
+        let postLamp = createLamp();
+        scene.add(postLamp);
+
+        // Create car
+        car = createCar();
+        scene.add(car);
+
+        // Create carport
+        let carport = createCarport();
+        carport.translateY(-5 + 0.02);
+        carport.translateZ(-45);
+        carport.translateX(-90);
+        carport.rotateY(THREE.Math.degToRad(90));
+        scene.add(carport);
+
+
+
+        // === Render Loop ===
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        function createCar() {
+            // Create the main container for the entire car (body + wheels + lights)
+            let carObject = new THREE.Object3D();
+            carObject.name = "carObject";
+
+            // Create the car body mesh (wedge shape)
+            let carGeom = createCarBody(); // creates THREE.Geometry() object
+
+            //NOTE: texture UV face coords order should match coord order of faces
+            carGeom.faceVertexUvs[0] = setCarFaceVertexUvs();
+            let texture = "texture-map.png"
+            texture.flipY = false; // prevent texture from being
+
+            let carTexture = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                map: loader.load(texture)
+            });
+
+            //Create car body mesh
+            let carMesh = new THREE.Mesh(carGeom, carTexture);
+
+            // ---------- WHEEL SYSTEM ----------
+
+            // Create empty containers for front and rear wheels
+            let wheels = new THREE.Object3D();
+            let wheelsFront = new THREE.Object3D();
+            wheelsFront.name = "wheelsFrontObject";
+            let wheelsRear = new THREE.Object3D();
+            wheelsRear.name = "wheelsRearObject";
+
+            let wheelGeom = new THREE.CylinderGeometry(radiusTop, radiusBottom, height, radialSegments);
+
+            // Multi-material setup for wheel (e.g., rubber for tread, metal for sides)
+            let wheelMaterials = [carMeshMaterials.wheelsRubber, carMeshMaterials.wheelsOuter, carMeshMaterials.wheelsInner];
+
+            // Create the base wheel mesh
+            let wheel1Mesh = new THREE.Mesh(wheelGeom, wheelMaterials);
+            wheel1Mesh.castShadow = true;
+            // Rotate the wheel so that it faces sideways (align to car movement)
+            wheel1Mesh.rotation.set(0.01745, 0, Math.PI / 2);
+
+            // Clone base wheel to create the other three wheels
+            let wheel2Mesh = wheel1Mesh.clone();
+            let wheel3Mesh = wheel1Mesh.clone();
+            let wheel4Mesh = wheel1Mesh.clone();
+
+            //change materials for right side wheels.
+            wheelMaterials = [carMeshMaterials.wheelsRubber, carMeshMaterials.wheelsInner, carMeshMaterials.wheelsOuter];
+            wheel3Mesh.material = wheelMaterials;
+            wheel4Mesh.material = wheelMaterials;
+
+            // Group front wheels together
+            wheelsFront.add(wheel2Mesh);
+            wheelsFront.add(wheel4Mesh);
+
+            // Group rear wheels together
+            wheelsRear.add(wheel1Mesh);
+            wheelsRear.add(wheel3Mesh);
+
+            // Add front and rear wheel groups to the wheels container
+            wheels.add(wheelsFront);
+            wheels.add(wheelsRear);
+
+            // ---------- POSITIONING ----------
+            // Position front left and front right wheels relative to the car width
+            wheel2Mesh.position.set(-carSize.w / 2, 0, 0);
+            wheel4Mesh.position.set(carSize.w / 2, 0, 0);
+
+            // Move front wheel group forward (toward car's front)
+            wheelsFront.position.z = (0.65 * carSize.l) - carSize.l / 2;
+
+            // Position rear left and rear right wheels relative to the car width
+            wheel1Mesh.position.set(-carSize.w / 2, 0, 0);
+            wheel3Mesh.position.set(carSize.w / 2, 0, 0);
+
+            // Move rear wheel group backward (toward car's rear)
+            wheelsRear.position.z = (0.15 * carSize.l) - carSize.l / 2;
+
+            // ---------- ASSEMBLE CAR ----------
+            // Add car body and wheels to the main car object
+            carObject.add(carMesh);
+            carObject.add(wheels);
+
+            // Create and add headlights group
+            var headlights = createHeadlights();
+            headlights.castShadow = true;
+            carObject.add(headlights);
+
+            // Create and add rearlights group
+            var rearlights = createRearLights();
+            carObject.add(rearlights);
+
+            //TODO 4: add license plate / tag to WedgeCar™
+            // load a font to create text for back of wedge car
+            //note, tag should move with the car!
+
+            const loaderFont = new THREE.FontLoader();
+
+            loaderFont.load('./helvetiker_regular.typeface.json', function (font) {
+                const plateGeometry = new THREE.TextGeometry('WedgeCar™', {
+                    font: font,
+                    size: 1,
+                    height: 0.5,
+                });
+
+                const plateMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+                const plateMesh = new THREE.Mesh(plateGeometry, plateMaterial);
+
+                plateMesh.position.set(3, 2, -carSize.l / 2); // adjust as needed
+                plateMesh.rotation.set(0, Math.PI, 0); // adjust rotation as needed
+
+                carObject.add(plateMesh);
+            });
+
+            wheel1Mesh.castShadow = true;
+            wheel1Mesh.receiveShadow = true;
+            wheel2Mesh.castShadow = true;
+            wheel2Mesh.receiveShadow = true;
+            wheel3Mesh.castShadow = true;
+            wheel3Mesh.receiveShadow = true;
+            wheel4Mesh.castShadow = true;
+            wheel4Mesh.receiveShadow = true;
+            carMesh.castShadow = true;
+            carMesh.receiveShadow = true;
+
+            // Return the fully assembled car object
+            return carObject;
+        }
+
+        // TODO 2
+        function createCarport() {
+
+            let carport = new THREE.Object3D();
+
+            const bufferBetweenCars = 5; // space between each car
+            const edgeBuffer = 5;        // space on left/right edges and front/back
+            const postRadius = 1;      // Larger post radius as example
+            const roofThickness = 1;
+
+            const roofWidth = carSize.w * 3 + bufferBetweenCars * 2 + edgeBuffer * 2;
+            const roofDepth = carSize.l + edgeBuffer * 2;
+            const postHeight = carSize.h * 1.5 + 10;
+
+            // === Materials ===
+            const postMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const glassMaterial = new THREE.MeshPhongMaterial({
+                color: 0x88ccee,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.3,
+            });
+
+            // === Post Geometry ===
+            const postGeometry = new THREE.CylinderGeometry(postRadius, postRadius, postHeight, 16);
+            const postY = postHeight / 2; // Centered at half the height
+
+            const inwardOffset = postRadius + 0.1;
+
+            const postPositions = [
+                [-roofWidth / 2 + inwardOffset, postY, -roofDepth / 2 + inwardOffset],
+                [roofWidth / 2 - inwardOffset, postY, -roofDepth / 2 + inwardOffset],
+                [-roofWidth / 2 + inwardOffset, postY, roofDepth / 2 - inwardOffset],
+                [roofWidth / 2 - inwardOffset, postY, roofDepth / 2 - inwardOffset]
+            ];
+
+            // === Add Posts to Scene ===
+            postPositions.forEach(pos => {
+                const post = new THREE.Mesh(postGeometry, postMaterial);
+                post.position.set(pos[0], pos[1], pos[2]);
+                post.castShadow = true;
+                post.receiveShadow = true;
+                carport.add(post);
+            });
+
+            // === Create Glass Roof ===
+            const roofGeometry = new THREE.BoxGeometry(roofWidth, roofThickness, roofDepth);
+            const roof = new THREE.Mesh(roofGeometry, glassMaterial);
+            roof.position.set(0, postHeight + roofThickness / 2, 0);
+            roof.castShadow = false;
+            roof.receiveShadow = true;
+            carport.add(roof);
+
+            return carport;
+        }
+
+        function createLamp() {
+            // Create a container for the entire lamp
+            let lampObject = new THREE.Object3D();
+
+            // Create the lamp post (vertical cylinder)
+            let lampMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(1, 1, 50), // radiusTop, radiusBottom, height
+                new THREE.MeshBasicMaterial({
+                    color: new THREE.Color("grey") // simple grey material
+                })
+            );
+            lampObject.add(lampMesh); // add lamp post to the lampObject
+            lampMesh.castShadow = true; // enable shadows for the lamp post
+
+            // Create the lamp head (open cylinder simulating a lampshade)
+            let lampLightMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(2, 2, 10, 50, 50, true), // open-ended cylinder
+                new THREE.MeshPhongMaterial({
+                    specular: new THREE.Color("white"),
+                    shininess: 100,
+                    color: new THREE.Color("black"),
+                    side: THREE.DoubleSide // render both inside and outside of shade
+                })
+            );
+
+            // Position and rotate the lamp head (tilted forward)
+            lampLightMesh.translateY(25);
+            lampLightMesh.translateX(2);
+            lampLightMesh.rotateZ(THREE.Math.degToRad(60));
+            lampObject.add(lampLightMesh); // add lamp head to lampObject
+            lampLightMesh.castShadow = true; // enable shadows for the lamp head
+
+            // Create a spotlight to simulate the light beam from the lamp
+            let lampLight = new THREE.SpotLight(
+                new THREE.Color("white"), // light color
+                1, // intensity
+                0, // infinite distance
+                THREE.Math.degToRad(30), // cone angle
+                0.5, // soft edge (penumbra)
+                0 // decay
+            );
+
+            lampLight.name = "lampLight";
+            // Position the light source at the center of the lamp head
+            lampLight.translateY(25);
+
+            // Create a target object for the spotlight to point towards
+            let lampLightTarget = new THREE.Object3D();
+            lampLightTarget.translateX(25); // offset target forward in X
+            lampLight.target = lampLightTarget;
+
+            // Add light and its target to the lampObject
+            lampObject.add(lampLight);
+            lampObject.add(lampLightTarget);
+
+
+            // === RED BUTTON ===
+            const buttonGeometry = new THREE.CylinderGeometry(1.5, 1.5, 0.5, 32);
+            const buttonMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+            const buttonMesh = new THREE.Mesh(buttonGeometry, buttonMaterial);
+
+            buttonMesh.rotation.z = THREE.Math.degToRad(90);
+
+            // Position the button sticking out from the post
+            buttonMesh.position.set(1, 10, 0);
+            buttonMesh.name = "lampButton";
+
+            lampObject.add(buttonMesh);
+
+            // Position the entire lampObject within the scene
+            lampObject.translateY(20);
+            lampObject.translateX(-75);
+
+            return lampObject; // return the completed lamp structure
+        }
+
+        // TODO 1: (hint, also see createLamp() function)
+        // === Mouse Event Code Section ===        
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        const canvas = document.getElementById('quiz-canvas');
+        document.addEventListener('click', onMouseClick);
+
+        function onMouseClick(event) {
+            var mx = event.clientX;
+            var my = event.clientY;
+
+            var target = event.target;
+            let clickedCanvas = false;
+
+            if (target == canvas) {
+                clickedCanvas = true;
+                console.log("clicked on a canvas");
+                var rect = target.getBoundingClientRect();
+                var cx = mx - rect.left;
+                var cy = my - rect.top;
+
+                mouse.x = (cx / canvasSize.width) * 2 - 1;
+                mouse.y = -(cy / canvasSize.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(scene.children, true);
+
+                for (let i = 0; i < intersects.length; i++) {
+                    const intersected = intersects[i].object;
+
+                    let topObject = intersected;
+                    while (topObject.parent && topObject.parent.type !== "Scene") {
+                        topObject = topObject.parent;
+                    }
+
+                    if (intersected.name === "lampButton") {
+                        const lampLight = scene.getObjectByName("lampLight");
+                        if (lampLight) {
+                            lampLight.visible = !lampLight.visible;
+                            console.log(`Lamp light is now ${lampLight.visible ? "ON" : "OFF"}`);
+                        }
+
+                        break; 
+                    }
+                }
+            }
+        }
     </script>
+
+
 </body>
+
 </html>
